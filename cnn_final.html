@@ -1,0 +1,1324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CNNs — How Machines See</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,700;1,300&family=DM+Mono:wght@400;500&display=swap');
+
+  :root {
+    --bg:      #f5f2eb;
+    --bg2:     #ede9df;
+    --panel:   #e3ddd1;
+    --card:    #ffffff;
+    --border:  rgba(14,14,14,0.10);
+    --border2: rgba(14,14,14,0.18);
+    --accent:  #e8490f;
+    --accent2: #c0392b;
+    --accent3: #c97d10;
+    --accent4: #1a6ee8;
+    --teal:    #0d9e7e;
+    --text:    #0e0e0e;
+    --muted:   #7a7268;
+    --mono:    'DM Mono', monospace;
+    --sans:    'DM Sans', sans-serif;
+    --display: 'Syne', sans-serif;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    font-family: var(--sans);
+    background: var(--bg);
+    color: var(--text);
+    height: 100%;
+    scroll-snap-type: y mandatory;
+    overflow-y: scroll;
+    scroll-behavior: smooth;
+  }
+
+  .slide {
+    height: 100vh; width: 100vw;
+    scroll-snap-align: start;
+    display: flex; flex-direction: column;
+    position: relative; overflow: hidden;
+  }
+
+  /* ── NAV ── */
+  .nav {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 28px;
+    background: rgba(245,242,235,0.9);
+    backdrop-filter: blur(14px);
+    border-bottom: 1px solid var(--border);
+  }
+  .nav-title { font-family: var(--display); font-size: 13px; color: var(--accent); letter-spacing: 0.5px; text-transform: uppercase; font-weight: 700; }
+  .nav-dots { display: flex; gap: 7px; }
+  .nav-dots a { width: 8px; height: 8px; border-radius: 50%; background: var(--panel); display: block; transition: background .3s, transform .3s; text-decoration: none; border: 1px solid var(--border2); }
+  .nav-dots a:hover, .nav-dots a.active { background: var(--accent); border-color: var(--accent); transform: scale(1.3); }
+
+  /* ── SCROLL HINT ── */
+  .scroll-hint {
+    position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
+    font-family: var(--mono); font-size: 10px; color: var(--muted); letter-spacing: 2px;
+    display: flex; flex-direction: column; align-items: center; gap: 5px;
+    animation: bob 2.2s ease-in-out infinite; pointer-events: none;
+  }
+  .scroll-hint::after { content: '▼'; font-size: 12px; }
+  @keyframes bob { 0%,100%{transform:translateX(-50%) translateY(0)} 50%{transform:translateX(-50%) translateY(7px)} }
+
+  /* ── TYPOGRAPHY ── */
+  .slide-tag { font-family: var(--mono); font-size: 11px; color: var(--accent); letter-spacing: 3px; text-transform: uppercase; margin-bottom: 10px; }
+  h1 { font-family: var(--display); font-size: clamp(2.4rem,5.5vw,4.5rem); font-weight: 800; line-height: 1.0; letter-spacing: -0.03em; }
+  h2 { font-family: var(--display); font-size: clamp(1.5rem,3vw,2.3rem); font-weight: 700; line-height: 1.15; letter-spacing: -0.02em; }
+  h3 { font-family: var(--display); font-size: 1.05rem; font-weight: 600; margin-bottom: 6px; }
+  p  { line-height: 1.7; color: var(--text); }
+  .muted { color: var(--muted); }
+  .accent-bar { width: 44px; height: 4px; background: var(--accent); border-radius: 2px; margin: 18px 0; }
+
+  /* ── LAYOUT ── */
+  .slide-body {
+    flex: 1; display: flex; flex-direction: column; justify-content: center;
+    padding: 76px 60px 46px; max-width: 1200px; margin: 0 auto; width: 100%;
+  }
+  .two-col   { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; align-items: center; }
+  .three-col { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+
+  /* ── CARD ── */
+  .card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 12px; padding: 18px 20px;
+    box-shadow: 0 1px 4px rgba(14,14,14,0.06);
+  }
+
+  /* ── BUTTONS ── */
+  .btn {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.5px;
+    padding: 8px 18px; border-radius: 99px; border: 1.5px solid var(--accent);
+    background: transparent; color: var(--accent); cursor: pointer;
+    transition: background .2s, color .2s;
+  }
+  .btn:hover, .btn.active { background: var(--accent); color: #fff; }
+  .btn.red   { border-color: var(--accent2); color: var(--accent2); }
+  .btn.red:hover { background: var(--accent2); color: #fff; }
+  .btn.blue  { border-color: var(--accent4); color: var(--accent4); }
+  .btn.blue:hover { background: var(--accent4); color: #fff; }
+
+  /* ── BADGES ── */
+  .badge { display: inline-block; padding: 2px 10px; border-radius: 20px; font-family: var(--mono); font-size: 10px; letter-spacing: 0.5px; }
+  .badge-o { background: rgba(232,73,15,.09); color: var(--accent); border: 1px solid rgba(232,73,15,.25); }
+  .badge-b { background: rgba(26,110,232,.09); color: var(--accent4); border: 1px solid rgba(26,110,232,.25); }
+  .badge-g { background: rgba(13,158,126,.09); color: var(--teal);   border: 1px solid rgba(13,158,126,.25); }
+  .badge-r { background: rgba(192,57,43,.09);  color: var(--accent2);border: 1px solid rgba(192,57,43,.25); }
+
+  /* ── GRID BG ── */
+  .grid-bg {
+    position: absolute; inset: 0; pointer-events: none;
+    background-image: linear-gradient(var(--border) 1px,transparent 1px),
+                      linear-gradient(90deg,var(--border) 1px,transparent 1px);
+    background-size: 48px 48px; opacity: .45;
+  }
+
+  /* ═══════ S0 TITLE ═══════ */
+  #s0 { background: var(--bg); }
+
+  /* ═══════ S1 IMAGES = NUMBERS ═══════ */
+  #s1 .pixel-grid { display: grid; gap: 3px; }
+  #s1 .pixel-cell {
+    width: 36px; height: 36px; border-radius: 5px;
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--mono); font-size: 10px; font-weight: 700;
+    border: 1px solid var(--border);
+    transition: transform .15s, border-color .15s;
+    cursor: default;
+  }
+  #s1 .pixel-cell:hover { transform: scale(1.15); z-index:1; position:relative; border-color: var(--accent); box-shadow: 0 2px 8px rgba(232,73,15,.2); }
+  .spectrum-bar { height: 12px; border-radius: 4px; margin-top: 10px; background: linear-gradient(90deg,#000,#888,#fff); border: 1px solid var(--border); }
+  .spectrum-labels { display: flex; justify-content: space-between; font-family: var(--mono); font-size: 10px; color: var(--muted); margin-top: 3px; }
+  .img-label { font-family: var(--mono); font-size: 10px; color: var(--muted); text-align: center; margin-top: 6px; }
+
+  /* ═══════ S2 ANN RECAP ═══════ */
+  #s2 { background: var(--bg); }
+  .nn-diagram { display: flex; align-items: center; justify-content: center; gap: 0; }
+  .nn-layer { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 0 12px; }
+  .nn-layer .layer-label { font-family: var(--mono); font-size: 9px; color: var(--muted); letter-spacing: 1px; margin-bottom: 4px; }
+  .nn-node {
+    width: 32px; height: 32px; border-radius: 50%;
+    border: 2px solid var(--border2); background: var(--card);
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--mono); font-size: 9px; color: var(--muted);
+    transition: border-color .3s, background .3s;
+  }
+  .nn-node.lit { border-color: var(--accent); background: rgba(232,73,15,.1); color: var(--accent); }
+  .nn-connector { width: 40px; height: 2px; background: var(--border2); position: relative; flex-shrink: 0; }
+  .nn-connector::after { content:''; position:absolute; right:-5px; top:-4px; border-top:5px solid transparent; border-bottom:5px solid transparent; border-left:8px solid var(--border2); }
+
+  /* ═══════ S3 ANN PROBLEM ═══════ */
+  #s3 { background: var(--bg); }
+  .problem-bar { height: 12px; border-radius: 4px; margin-top: 8px; transition: width 1s ease; }
+
+  /* ═══════ S4 CNN FIX ═══════ */
+  #s4 { background: var(--bg); }
+  .fix-row { display: flex; align-items: flex-start; gap: 28px; margin-top: 20px; }
+  .fix-card {
+    flex: 1; background: var(--card); border-radius: 14px;
+    padding: 22px; border: 1.5px solid var(--border);
+    box-shadow: 0 1px 4px rgba(14,14,14,.06);
+  }
+  .fix-card.highlight { border-color: rgba(232,73,15,.4); background: rgba(232,73,15,.03); }
+  .fix-card h3 { font-size: 1rem; margin-bottom: 8px; }
+  .fix-icon { font-size: 2rem; margin-bottom: 8px; }
+
+  /* ═══════ S5 CONVOLUTION ═══════ */
+  #s5 { background: var(--bg); }
+  .conv-grid { display: grid; gap: 3px; }
+  .conv-cell {
+    width: 38px; height: 38px; border-radius: 5px;
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--mono); font-size: 10px; font-weight: 700;
+    border: 1px solid var(--border); transition: all .15s;
+  }
+  .highlight-patch { border: 2px solid var(--accent) !important; transform: scale(1.06); box-shadow: 0 0 6px rgba(232,73,15,.3); }
+  .output-active   { border: 2px solid var(--accent3) !important; background: rgba(201,125,16,.12) !important; }
+  .filter-type-btn {
+    padding: 7px 14px; border-radius: 99px; border: 1.5px solid var(--border2);
+    background: transparent; color: var(--text); cursor: pointer;
+    font-family: var(--mono); font-size: 10px; transition: all .2s;
+  }
+  .filter-type-btn:hover, .filter-type-btn.active { border-color: var(--accent); color: var(--accent); background: rgba(232,73,15,.07); }
+
+  /* ═══════ S6 RELU + POOLING ═══════ */
+  #s6 { background: var(--bg); }
+  .anim-cell {
+    width: 34px; height: 34px; border-radius: 4px;
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--mono); font-size: 9px; border: 1px solid var(--border);
+    transition: background .2s, border-color .2s;
+  }
+
+  /* ═══════ S7 FULL PIPELINE ═══════ */
+  #s7 { background: var(--bg); }
+  .arch-flow { display: flex; align-items: center; overflow-x: auto; padding: 8px 0 12px; }
+  .arch-block {
+    display: flex; flex-direction: column; align-items: center; gap: 6px;
+    padding: 14px 16px; background: var(--card); border: 1px solid var(--border);
+    border-radius: 10px; min-width: 88px; text-align: center;
+    font-family: var(--mono); font-size: 9px; flex-shrink: 0;
+    transition: transform .2s, box-shadow .2s; cursor: pointer;
+    box-shadow: 0 1px 3px rgba(14,14,14,.05); position: relative;
+  }
+  .arch-block:hover { transform: translateY(-5px); box-shadow: 0 8px 20px rgba(14,14,14,.10); }
+  .arch-block .icon { font-size: 1.5rem; }
+  .arch-arrow { font-size: 1.2rem; color: var(--muted); padding: 0 4px; flex-shrink: 0; }
+  .arch-block.conv-b { border-color: rgba(232,73,15,.35); }
+  .arch-block.pool-b { border-color: rgba(26,110,232,.35); }
+  .arch-block.relu-b { border-color: rgba(192,57,43,.35); }
+  .arch-block.fc-b   { border-color: rgba(201,125,16,.35); }
+  .arch-block.out-b  { border-color: rgba(13,158,126,.35); }
+  .arch-tooltip {
+    display: none; position: absolute; bottom: calc(100% + 10px); left: 50%;
+    transform: translateX(-50%); background: var(--card); border: 1px solid var(--border2);
+    border-radius: 8px; padding: 10px 14px; width: 190px; font-family: var(--sans);
+    font-size: 11px; line-height: 1.5; z-index: 10; color: var(--text);
+    box-shadow: 0 4px 16px rgba(14,14,14,.12);
+  }
+  .arch-block:hover .arch-tooltip { display: block; }
+
+  /* ═══════ S8 DRAW ═══════ */
+  #s8 { background: var(--bg); }
+  #drawCanvas { border: 2px solid var(--border2); border-radius: 12px; cursor: crosshair; background: #111318; touch-action: none; }
+  .pred-row { display: flex; align-items: center; gap: 8px; font-family: var(--mono); font-size: 11px; }
+  .pred-label { width: 14px; text-align: right; color: var(--muted); }
+  .pred-bar-bg { flex: 1; height: 9px; background: var(--bg2); border-radius: 3px; overflow: hidden; border: 1px solid var(--border); }
+  .pred-bar-fill { height: 100%; border-radius: 3px; background: rgba(232,73,15,.3); transition: width .4s ease; width: 0%; }
+  .pred-pct { width: 38px; color: var(--muted); font-size: 10px; text-align: right; }
+  .best-guess { font-family: var(--display); font-size: 5rem; color: var(--accent); font-weight: 800; text-align: center; letter-spacing: -0.04em; line-height: 1; }
+
+  /* ═══════ S9 COLOUR ═══════ */
+  #s9 { background: var(--bg); }
+  .rgb-channel { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  .rgb-channel canvas { border-radius: 8px; border: 2px solid; }
+
+  /* ═══════ S10 WRAP UP ═══════ */
+  #s10 { background: var(--bg); }
+  .takeaway-card {
+    background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 18px 20px;
+    display: flex; gap: 14px; align-items: flex-start;
+    transition: transform .2s, box-shadow .2s; box-shadow: 0 1px 3px rgba(14,14,14,.05);
+  }
+  .takeaway-card:hover { transform: translateY(-2px); box-shadow: 0 5px 14px rgba(14,14,14,.09); }
+  .takeaway-num { font-family: var(--display); font-size: 2rem; color: var(--accent); font-weight: 800; line-height: 1; min-width: 38px; }
+
+  /* ── VS TABLE ── */
+  .vs-table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+  .vs-table th { font-family: var(--mono); font-size: 10px; letter-spacing: 1.5px; padding: 9px 14px; text-align: left; border-bottom: 1.5px solid var(--border2); color: var(--muted); }
+  .vs-table td { padding: 10px 14px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  .vs-table tr:last-child td { border-bottom: none; }
+  .nn-col { color: var(--accent2); } .cnn-col { color: var(--accent); }
+
+  /* ── misc ── */
+  canvas { display: block; }
+  .code { font-family: var(--mono); font-size: 11px; background: var(--panel); padding: 2px 6px; border-radius: 4px; border: 1px solid var(--border); }
+  @media (max-width: 768px) {
+    .slide-body { padding: 76px 18px 36px; }
+    .two-col, .fix-row { grid-template-columns: 1fr; flex-direction: column; }
+    .three-col { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <span class="nav-title">ANN → CNN</span>
+  <div class="nav-dots" id="navDots">
+    <a href="#s0" title="Title"></a>
+    <a href="#s1" title="Images = Numbers"></a>
+    <a href="#s2" title="ANN Recap"></a>
+    <a href="#s3" title="ANN's Problem"></a>
+    <a href="#s5" title="Convolution"></a>
+    <a href="#s6" title="Stride, Padding & Pooling"></a>
+    <a href="#s7" title="Full Pipeline"></a>
+    <a href="#s8" title="Try It"></a>
+    <a href="#s9" title="Colour"></a>
+    <a href="#s10" title="Wrap Up"></a>
+  </div>
+</nav>
+
+<!-- ══════════════════════════════════════
+     S0 — TITLE
+══════════════════════════════════════ -->
+<section class="slide" id="s0">
+  <div class="grid-bg"></div>
+  <div class="slide-body">
+    <div class="slide-tag">Convolutional Neural Networks</div>
+    <h1>How Machines<br><span style="color:var(--accent)">See.</span></h1>
+    <div class="accent-bar"></div>
+    <p style="font-size:1.1rem; font-weight:300; color:var(--muted); max-width:480px; line-height:1.65;">
+      Starting from what you know about neural networks — and building up to CNNs, step by step.
+    </p>
+  </div>
+  <div class="scroll-hint">SCROLL</div>
+</section>
+
+<!-- ══════════════════════════════════════
+     S1 — IMAGES ARE NUMBERS
+══════════════════════════════════════ -->
+<section class="slide" id="s1">
+  <div class="slide-body" style="gap:16px;">
+    <div class="slide-tag">01 — Before anything else</div>
+    <div class="two-col" style="gap:44px;">
+      <div>
+        <h2>An image is just a<br><span style="color:var(--accent)">grid of numbers.</span></h2>
+        <p style="margin-top:14px;">Every pixel is a number — <strong>0 = black, 255 = white</strong>, everything in between is grey. That is the only "language" a computer understands.</p>
+        <div style="margin-top:16px;">
+          <div class="spectrum-bar"></div>
+          <div class="spectrum-labels"><span>0</span><span>128</span><span>255</span></div>
+          <div style="display:flex;justify-content:space-between;font-family:var(--mono);font-size:9px;color:var(--muted);margin-top:3px;"><span>⬛ black</span><span>🔘 grey</span><span>⬜ white</span></div>
+        </div>
+        <div style="margin-top:18px;" class="card">
+          <p style="font-size:.85rem;">A 28×28 image like those in MNIST is just <strong>784 numbers</strong>. That's the entire input to any model we'll build.</p>
+        </div>
+        <div style="margin-top:14px; display:flex; gap:10px;">
+          <button class="btn" onclick="randomPixels()">🎲 Random</button>
+          <button class="btn blue" onclick="facePixels()">😐 Face</button>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:8px;">
+        <div id="pixelGrid" class="pixel-grid" style="display:grid;grid-template-columns:repeat(8,36px);gap:3px;"></div>
+        <div class="img-label">8×8 grid — hover any pixel</div>
+      </div>
+    </div>
+  </div>
+  <div class="scroll-hint">SCROLL</div>
+</section>
+
+<!-- ══════════════════════════════════════
+     S2 — ANN RECAP
+══════════════════════════════════════ -->
+<section class="slide" id="s2">
+  <div class="slide-body" style="gap:16px;">
+    <div class="slide-tag">02 — What you already know</div>
+    <h2>A neural network takes numbers in, <span style="color:var(--accent4)">learns from them.</span></h2>
+    <p style="margin-top:6px; color:var(--muted); max-width:60ch;">You feed it inputs → it passes them through layers of neurons → it produces an output. Each neuron: multiply inputs by weights, sum, activate. Train with backprop. You know this.</p>
+
+    <div id="nnDiagram" class="nn-diagram" style="margin-top:24px; flex-wrap:wrap; row-gap:16px;"></div>
+
+    <div class="three-col" style="margin-top:20px;">
+      <div class="card" style="border-color:rgba(26,110,232,.2);">
+        <div style="font-size:1.3rem; margin-bottom:6px;">🔢</div>
+        <h3>Input layer</h3>
+        <p style="font-size:.82rem; color:var(--muted);">One neuron per feature. For our digit: <strong>784 neurons</strong>, one per pixel.</p>
+      </div>
+      <div class="card" style="border-color:rgba(201,125,16,.2);">
+        <div style="font-size:1.3rem; margin-bottom:6px;">🔗</div>
+        <h3>Hidden layers</h3>
+        <p style="font-size:.82rem; color:var(--muted);">Fully connected — every neuron talks to every other. This is where patterns are learned.</p>
+      </div>
+      <div class="card" style="border-color:rgba(13,158,126,.2);">
+        <div style="font-size:1.3rem; margin-bottom:6px;">🏷️</div>
+        <h3>Output layer</h3>
+        <p style="font-size:.82rem; color:var(--muted);">One neuron per class. Softmax turns activations into probabilities.</p>
+      </div>
+    </div>
+  </div>
+  <div class="scroll-hint">SCROLL</div>
+</section>
+
+<!-- ══════════════════════════════════════
+     S3 — ANN'S PROBLEM WITH IMAGES
+══════════════════════════════════════ -->
+<section class="slide" id="s3">
+  <div class="slide-body" style="gap:16px;">
+    <div class="slide-tag">03 — The problem</div>
+    <h2>ANNs on images: <span style="color:var(--accent2)">two fundamental issues.</span></h2>
+
+    <div class="two-col" style="gap:40px; margin-top:10px;">
+      <div style="display:flex;flex-direction:column;gap:16px;">
+        <div class="card" style="border-color:rgba(192,57,43,.3);">
+          <span class="badge badge-r" style="margin-bottom:8px;display:inline-block;">Problem 1</span>
+          <h3>Way too many parameters</h3>
+          <p style="font-size:.85rem; margin-top:4px;">Take a 256×256 colour photo. Flatten it: <strong>196,608 inputs</strong>. One hidden layer of 512 neurons needs:</p>
+          <div style="font-family:var(--mono);font-size:1rem;color:var(--accent2);margin:10px 0;">196,608 × 512 ≈ <strong>100M weights</strong></div>
+          <div style="background:var(--accent2);height:8px;border-radius:4px;width:100%;opacity:.65;"></div>
+          <p style="font-size:.78rem;color:var(--muted);margin-top:6px;">Just for <em>one</em> layer. This explodes memory & compute — and we haven't even got to the output yet.</p>
+        </div>
+
+        <div class="card" style="border-color:rgba(192,57,43,.3);">
+          <span class="badge badge-r" style="margin-bottom:8px;display:inline-block;">Problem 2</span>
+          <h3>Spatial structure is thrown away</h3>
+          <p style="font-size:.85rem; margin-top:4px;">When we flatten an image to a list, we lose the fact that <em>neighbouring pixels are related</em>. A cat's eye at position (10,10) is completely disconnected from the pixel next to it at (10,11).</p>
+          <p style="font-size:.78rem;color:var(--muted);margin-top:6px;">The network must re-learn spatial patterns from scratch — inefficient, and brittle.</p>
+        </div>
+      </div>
+
+      <div>
+        <div class="card" style="margin-bottom:16px;">
+          <h3 style="color:var(--muted);">Translation problem</h3>
+          <p style="font-size:.85rem;margin-top:4px;">A plain ANN trained on a "cat top-left" photo has <em>no idea</em> the same cat appears bottom-right. It treats them as completely different inputs.</p>
+          <div style="margin-top:14px;display:grid;grid-template-columns:1fr 1fr;gap:10px;text-align:center;">
+            <div style="background:var(--bg2);border-radius:8px;padding:14px;border:1px solid var(--border);">
+              <div style="font-size:1.4rem;margin-bottom:4px;">🐈</div>
+              <div style="font-family:var(--mono);font-size:9px;color:var(--muted);">cat at top-left<br>"input A"</div>
+            </div>
+            <div style="background:var(--bg2);border-radius:8px;padding:14px;border:1px solid var(--border);">
+              <div style="font-size:1.4rem;margin-bottom:4px; margin-left:auto;display:block;text-align:right;">🐈</div>
+              <div style="font-family:var(--mono);font-size:9px;color:var(--muted);">cat at bottom-right<br>"input B"</div>
+            </div>
+          </div>
+          <p style="font-size:.78rem;color:var(--accent2);margin-top:10px;text-align:center;">ANN sees these as totally different inputs ❌</p>
+        </div>
+        <div class="card">
+          <table class="vs-table">
+            <thead><tr><th></th><th class="nn-col">Plain ANN</th><th class="cnn-col">CNN (next →)</th></tr></thead>
+            <tbody>
+              <tr><td>Spatial awareness</td><td class="nn-col">❌</td><td class="cnn-col">✅</td></tr>
+              <tr><td>Translation invariant</td><td class="nn-col">❌</td><td class="cnn-col">✅</td></tr>
+              <tr><td>Parameter count</td><td class="nn-col">😱 100M+</td><td class="cnn-col">😌 Manageable</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="scroll-hint">SCROLL</div>
+</section>
+
+<!-- ══════════════════════════════════════
+     S5 — CONVOLUTION
+══════════════════════════════════════ -->
+<section class="slide" id="s5">
+  <div class="slide-body" style="gap:14px;">
+    <div class="slide-tag">05 — The core operation</div>
+    <h2>Convolution: the <span style="color:var(--accent)">sliding filter.</span></h2>
+    <div class="two-col" style="gap:28px; margin-top:8px;">
+      <div>
+        <p>A <strong>kernel</strong> is a tiny grid of learned weights — like a stamp. We slide it over the image, compute a dot-product at each position, and write the result to a new grid called a <strong>feature map</strong>.</p>
+        <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="filter-type-btn active" onclick="setFilter('edge')" id="fbEdge">🔲 Edge</button>
+          <button class="filter-type-btn" onclick="setFilter('blur')" id="fbBlur">💧 Blur</button>
+          <button class="filter-type-btn" onclick="setFilter('sharp')" id="fbSharp">✨ Sharpen</button>
+        </div>
+        <div style="margin-top:12px;" class="card">
+          <div id="kernelDisplay" style="font-family:var(--mono);font-size:11px;line-height:1.9;"></div>
+          <div style="margin-top:6px;font-size:.78rem;color:var(--muted);" id="filterDesc"></div>
+        </div>
+        <div style="margin-top:12px;display:flex;gap:8px;">
+          <button class="btn" onclick="startConvAnim()">▶ Step through</button>
+          <button class="btn red" onclick="resetConv()">↺ Reset</button>
+        </div>
+        <div style="margin-top:10px;font-family:var(--mono);font-size:11px;color:var(--accent3);" id="convStatus">Click "Step through" to animate.</div>
+        <div style="margin-top:12px;" class="card" style="padding:12px;border-left:3px solid var(--accent4);border-radius:0 8px 8px 0;background:rgba(26,110,232,.04);">
+          <p style="font-size:.8rem;"><strong>Key insight:</strong> the network learns dozens of filters automatically — one for edges, one for curves, one for blobs. Each produces its own feature map.</p>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:14px;">
+        <div style="display:flex;gap:18px;align-items:flex-start;flex-wrap:wrap;justify-content:center;">
+          <div style="text-align:center;">
+            <div class="img-label" style="margin-bottom:5px;">Input (6×6)</div>
+            <div id="convInput" class="conv-grid" style="grid-template-columns:repeat(6,38px);"></div>
+          </div>
+          <div style="display:flex;align-items:center;padding-top:40px;font-family:var(--mono);font-size:1.2rem;color:var(--muted);">→</div>
+          <div style="text-align:center;">
+            <div class="img-label" style="margin-bottom:5px;">Output (4×4)</div>
+            <div id="convOutput" class="conv-grid" style="grid-template-columns:repeat(4,38px);"></div>
+          </div>
+        </div>
+        <div style="font-size:.78rem;color:var(--muted);text-align:center;max-width:280px;">🟧 = patch under kernel &nbsp;|&nbsp; 🟡 = output being written</div>
+      </div>
+    </div>
+  </div>
+  <div class="scroll-hint">SCROLL</div>
+</section>
+
+<!-- ══════════════════════════════════════
+     S6 — STRIDE, PADDING & POOLING
+══════════════════════════════════════ -->
+<section class="slide" id="s6">
+  <div class="slide-body" style="gap:14px;">
+    <div class="slide-tag">06 — Controlling size</div>
+    <h2>Stride, Padding <span style="color:var(--accent4)">&amp; Pooling.</span></h2>
+    <div class="two-col" style="gap:32px; margin-top:8px; align-items:start;">
+
+      <div style="display:flex;flex-direction:column;gap:16px;">
+        <!-- Stride -->
+        <div class="card">
+          <h3>Stride</h3>
+          <p style="font-size:.85rem;">How many pixels the filter <em>skips</em> each step. Stride 1 = every pixel. Stride 2 = every other — giving a smaller output.</p>
+          <div style="margin-top:12px;display:flex;align-items:center;gap:12px;">
+            <span style="font-family:var(--mono);font-size:11px;color:var(--muted);">Stride:</span>
+            <button class="btn" onclick="setStride(1)" id="st1" style="padding:6px 14px;">1</button>
+            <button class="btn" onclick="setStride(2)" id="st2" style="padding:6px 14px;">2</button>
+            <span style="font-family:var(--mono);font-size:11px;color:var(--accent3);" id="strideEffect">Output: 5×5</span>
+          </div>
+          <div style="margin-top:10px;">
+            <div id="strideGrid" class="anim-grid" style="display:grid;grid-template-columns:repeat(7,34px);gap:3px;"></div>
+            <div class="img-label" style="margin-top:5px;text-align:left;">7×7 input · 3×3 filter stepping at chosen stride</div>
+          </div>
+        </div>
+        <!-- Padding -->
+        <div class="card">
+          <h3>Padding</h3>
+          <p style="font-size:.85rem;">Without padding, output shrinks every layer. Add a <em>border of zeros</em> to keep the same size.</p>
+          <div style="margin-top:10px;display:flex;gap:10px;align-items:center;">
+            <button class="btn" onclick="togglePad()" id="padBtn">Show padding</button>
+            <span style="font-family:var(--mono);font-size:11px;color:var(--muted);" id="padLabel">No padding → output shrinks</span>
+          </div>
+          <div style="margin-top:10px;">
+            <div id="padGrid" class="anim-grid" style="display:grid;grid-template-columns:repeat(7,30px);gap:3px;"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Pooling -->
+      <div style="display:flex;flex-direction:column;gap:16px;">
+        <div class="card" style="border-color:rgba(26,110,232,.25);">
+          <span class="badge badge-b" style="margin-bottom:8px;display:inline-block;">Max Pooling</span>
+          <h3>Keep the strongest signal</h3>
+          <p style="font-size:.85rem;margin-top:6px;">Take each 2×2 region, keep only the max. Halves both dimensions — reducing compute — while keeping the most important activations. Adds position tolerance too.</p>
+          <div style="margin-top:12px;text-align:center;">
+            <canvas id="poolCanvas" width="260" height="130"></canvas>
+            <div class="img-label" style="margin-top:4px;">2×2 max pool → half the size</div>
+            <button class="btn blue" style="margin-top:8px;" onclick="animatePool()">▶ Animate</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="scroll-hint">SCROLL</div>
+</section>
+
+<!-- ══════════════════════════════════════
+     S7 — FULL PIPELINE
+══════════════════════════════════════ -->
+<section class="slide" id="s7">
+  <div class="slide-body" style="gap:14px;">
+    <div class="slide-tag">07 — Putting it all together</div>
+    <h2>The complete CNN <span style="color:var(--accent)">pipeline.</span></h2>
+    <p style="color:var(--muted);font-size:.9rem;">Hover any block for details.</p>
+
+    <div style="margin-top:14px;overflow-x:auto;padding-bottom:8px;">
+      <div class="arch-flow">
+        <div class="arch-block" style="background:var(--bg2);">
+          <div class="icon">🖼️</div>
+          <div style="color:var(--muted);font-size:8px;">INPUT</div>
+          <div>Image</div>
+          <div class="arch-tooltip">Raw pixel grid — shape (28, 28, 1) for greyscale or (H, W, 3) for colour.</div>
+        </div>
+        <div class="arch-arrow">→</div>
+        <div class="arch-block conv-b">
+          <div class="icon">🔎</div>
+          <div style="color:var(--accent);font-size:8px;">CONV</div>
+          <div>Conv Layer</div>
+          <div class="arch-tooltip">Slides multiple learned filters over the image. Each filter produces one feature map. Captures edges, curves, textures.</div>
+        </div>
+        <div class="arch-arrow">→</div>
+        <div class="arch-block relu-b">
+          <div class="icon">⚡</div>
+          <div style="color:var(--accent2);font-size:8px;">RELU</div>
+          <div>Activation</div>
+          <div class="arch-tooltip">Clips negatives to zero. Identical to the ReLU in your plain ANN. Introduces non-linearity.</div>
+        </div>
+        <div class="arch-arrow">→</div>
+        <div class="arch-block pool-b">
+          <div class="icon">📉</div>
+          <div style="color:var(--accent4);font-size:8px;">POOL</div>
+          <div>Max Pool</div>
+          <div class="arch-tooltip">2×2 max pool halves width and height. Reduces computation and adds position tolerance.</div>
+        </div>
+        <div class="arch-arrow">→</div>
+        <div class="arch-block conv-b">
+          <div class="icon">🔎</div>
+          <div style="color:var(--accent);font-size:8px;">CONV×N</div>
+          <div>Deeper Conv</div>
+          <div class="arch-tooltip">Repeat conv+relu+pool. Later layers see larger receptive fields and learn more complex patterns — shapes, textures, parts.</div>
+        </div>
+        <div class="arch-arrow">→</div>
+        <div class="arch-block fc-b">
+          <div class="icon">↕️</div>
+          <div style="color:var(--accent3);font-size:8px;">FLATTEN</div>
+          <div>Flatten</div>
+          <div class="arch-tooltip">Convert 2D feature maps into a single 1D vector. Only here do we lose spatial structure — intentionally.</div>
+        </div>
+        <div class="arch-arrow">→</div>
+        <div class="arch-block fc-b">
+          <div class="icon">🧠</div>
+          <div style="color:var(--accent3);font-size:8px;">DENSE</div>
+          <div>FC Layers</div>
+          <div class="arch-tooltip">Fully connected layers — exactly like your ANN. Now operating on compact, meaningful features extracted by the conv layers.</div>
+        </div>
+        <div class="arch-arrow">→</div>
+        <div class="arch-block out-b">
+          <div class="icon">🏷️</div>
+          <div style="color:var(--teal);font-size:8px;">OUTPUT</div>
+          <div>Softmax</div>
+          <div class="arch-tooltip">One output per class. Softmax turns raw scores into probabilities. Pick the highest — that's the prediction.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="three-col" style="margin-top:12px;">
+      <div class="card" style="border-color:rgba(232,73,15,.2);text-align:center;">
+        <div style="font-size:1.2rem;">Layer 1</div>
+        <div style="color:var(--accent);font-size:.8rem;margin-top:3px;">Edges & gradients</div>
+      </div>
+      <div class="card" style="border-color:rgba(26,110,232,.2);text-align:center;">
+        <div style="font-size:1.2rem;">Layer 2–3</div>
+        <div style="color:var(--accent4);font-size:.8rem;margin-top:3px;">Textures & shapes</div>
+      </div>
+      <div class="card" style="border-color:rgba(13,158,126,.2);text-align:center;">
+        <div style="font-size:1.2rem;">Layer 4+</div>
+        <div style="color:var(--teal);font-size:.8rem;margin-top:3px;">Objects & faces</div>
+      </div>
+    </div>
+
+    <div style="margin-top:10px;" class="card" style="border-left:3px solid var(--accent3);border-radius:0 8px 8px 0;background:rgba(201,125,16,.04);padding:12px;">
+      <p style="font-size:.82rem;">🧅 <strong>The onion analogy:</strong> each layer peels back one level of abstraction. First lines, then shapes, then object parts, then objects. Every layer builds on the one before.</p>
+    </div>
+  </div>
+  <div class="scroll-hint">SCROLL</div>
+</section>
+
+<!-- ══════════════════════════════════════
+     S8 — DRAW A DIGIT
+══════════════════════════════════════ -->
+<section class="slide" id="s8">
+  <div class="slide-body" style="gap:12px;">
+    <div class="slide-tag">08 — Try it</div>
+    <h2>Draw a digit. The model <span style="color:var(--accent)">guesses.</span></h2>
+    <div style="display:grid;grid-template-columns:auto 1fr auto;gap:24px;align-items:start;margin-top:8px;">
+      <!-- Canvas -->
+      <div style="display:flex;flex-direction:column;align-items:center;gap:8px;">
+        <canvas id="drawCanvas" width="252" height="252"></canvas>
+        <div style="display:flex;gap:8px;">
+          <button class="btn red" onclick="clearCanvas()">🗑 Clear</button>
+          <button class="btn" onclick="classifyDigit()">🔍 Classify</button>
+        </div>
+        <div style="font-family:var(--mono);font-size:10px;color:var(--muted);text-align:center;">Mouse or touch. Keep it large & centred!</div>
+      </div>
+      <!-- Preview -->
+      <div style="display:flex;flex-direction:column;align-items:center;gap:8px;">
+        <div class="img-label">What the model sees: 28×28</div>
+        <canvas id="previewCanvas" width="140" height="140" style="image-rendering:pixelated;border:1px solid var(--border2);border-radius:8px;"></canvas>
+        <div class="img-label">784 numbers in</div>
+        <div style="margin-top:6px;" class="card" style="padding:12px;max-width:200px;">
+          <p style="font-size:.78rem;color:var(--muted);">The network sees exactly this — a flat list of 784 brightness values, normalised 0→1.</p>
+        </div>
+      </div>
+      <!-- Predictions -->
+      <div style="display:flex;flex-direction:column;gap:8px;min-width:200px;">
+        <div class="best-guess" id="bestGuess">?</div>
+        <div class="img-label" style="text-align:center;margin-top:-4px;">Top prediction</div>
+        <div id="predBars" style="display:flex;flex-direction:column;gap:5px;"></div>
+      </div>
+    </div>
+  </div>
+  <div class="scroll-hint">SCROLL</div>
+</section>
+
+<!-- ══════════════════════════════════════
+     S9 — COLOUR = 3D
+══════════════════════════════════════ -->
+<section class="slide" id="s9">
+  <div class="slide-body" style="gap:14px;">
+    <div class="slide-tag">09 — Extending to colour</div>
+    <h2>Colour images: <span style="color:var(--accent2)">R</span><span style="color:var(--teal)">G</span><span style="color:var(--accent4)">B</span> — three grids stacked.</h2>
+    <div class="two-col" style="gap:40px; margin-top:8px;">
+      <div>
+        <p>Everything we just built works the same — we just have depth 3 instead of 1. Each filter now has shape <span class="code">3×3×3</span> (27 values) and slides through all three channels simultaneously.</p>
+        <div style="margin-top:14px;" class="card">
+          <div style="font-family:var(--mono);font-size:1rem;color:var(--accent);margin-bottom:4px;">256 × 256 × 3 = 196,608</div>
+          <p style="font-size:.82rem;color:var(--muted);">values going in — but our 3×3×3 filter still only has 27 shared weights.</p>
+        </div>
+        <div style="margin-top:12px;" class="card" style="border-left:3px solid var(--teal);border-radius:0 8px 8px 0;background:rgba(13,158,126,.04);padding:12px;">
+          <p style="font-size:.82rem;">After layer 1, feature maps may have 32, 64, or 512 channels — each one a learned "concept detector." By layer 4, neurons respond to eyes, ears, wheels, text.</p>
+        </div>
+        <button class="btn" style="margin-top:14px;" onclick="newRGBImage()">🎨 New image</button>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:10px;">
+        <div style="display:flex;gap:10px;align-items:flex-end;">
+          <div class="rgb-channel">
+            <canvas id="rgbR" width="100" height="100" class="channel-r"></canvas>
+            <div style="font-family:var(--mono);font-size:10px;color:#e05252;text-align:center;">RED</div>
+          </div>
+          <div style="font-size:1.5rem;color:var(--muted);margin-bottom:16px;">+</div>
+          <div class="rgb-channel">
+            <canvas id="rgbG" width="100" height="100" class="channel-g"></canvas>
+            <div style="font-family:var(--mono);font-size:10px;color:#2db87a;text-align:center;">GREEN</div>
+          </div>
+          <div style="font-size:1.5rem;color:var(--muted);margin-bottom:16px;">+</div>
+          <div class="rgb-channel">
+            <canvas id="rgbB" width="100" height="100" class="channel-b"></canvas>
+            <div style="font-family:var(--mono);font-size:10px;color:#4a90e2;text-align:center;">BLUE</div>
+          </div>
+        </div>
+        <div style="font-size:1rem;color:var(--muted);">▼ combined ▼</div>
+        <canvas id="rgbFull" width="120" height="120" style="border-radius:10px;border:2px solid var(--border2);"></canvas>
+        <div class="img-label">Full colour image</div>
+      </div>
+    </div>
+  </div>
+  <div class="scroll-hint">SCROLL</div>
+</section>
+
+<!-- ══════════════════════════════════════
+     S10 — WRAP UP
+══════════════════════════════════════ -->
+<section class="slide" id="s10">
+  <div class="slide-body" style="gap:14px;">
+    <div class="slide-tag">10 — The journey</div>
+    <h2>From ANN to CNN — <span style="color:var(--accent)">four steps.</span></h2>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px;">
+      <div class="takeaway-card" style="border-color:rgba(26,110,232,.2);">
+        <div class="takeaway-num" style="color:var(--accent4);">1</div>
+        <div>
+          <h4 style="font-family:var(--display);font-size:.95rem;margin-bottom:4px;">Images are grids of numbers</h4>
+          <p style="font-size:.82rem;color:var(--muted);">Every pixel = one value. A 28×28 image = 784 numbers. Colour = three of these stacked.</p>
+        </div>
+      </div>
+      <div class="takeaway-card" style="border-color:rgba(232,73,15,.2);">
+        <div class="takeaway-num">2</div>
+        <div>
+          <h4 style="font-family:var(--display);font-size:.95rem;margin-bottom:4px;">ANNs struggle with images</h4>
+          <p style="font-size:.82rem;color:var(--muted);">Too many parameters. No spatial awareness. Translation blindness. We needed something better.</p>
+        </div>
+      </div>
+      <div class="takeaway-card" style="border-color:rgba(232,73,15,.2);">
+        <div class="takeaway-num">3</div>
+        <div>
+          <h4 style="font-family:var(--display);font-size:.95rem;margin-bottom:4px;">Convolution = local + shared</h4>
+          <p style="font-size:.82rem;color:var(--muted);">A tiny filter slides everywhere. 9 weights, reused across the whole image. Learns patterns in their spatial context.</p>
+        </div>
+      </div>
+      <div class="takeaway-card" style="border-color:rgba(13,158,126,.2);">
+        <div class="takeaway-num" style="color:var(--teal);">4</div>
+        <div>
+          <h4 style="font-family:var(--display);font-size:.95rem;margin-bottom:4px;">CNN = Conv + Pool + FC</h4>
+          <p style="font-size:.82rem;color:var(--muted);">Convolutional layers extract features. Pooling shrinks. Fully-connected layers (your ANN!) make the final decision.</p>
+        </div>
+      </div>
+    </div>
+    <div style="margin-top:14px;text-align:center;font-family:var(--mono);font-size:11px;color:var(--muted);">
+      Thank you · Questions?
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════
+     JAVASCRIPT
+══════════════════════════════════════ -->
+<script>
+/* ─── NAV DOTS ─── */
+const slides = document.querySelectorAll('.slide');
+const dots   = document.querySelectorAll('.nav-dots a');
+new IntersectionObserver(entries => {
+  entries.forEach(e => {
+    if(e.isIntersecting){
+      const i = [...slides].indexOf(e.target);
+      dots.forEach((d,j) => d.classList.toggle('active', i===j));
+    }
+  });
+}, {threshold:0.5}).observe = (function(){
+  const obs = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if(e.isIntersecting){
+        const i=[...slides].indexOf(e.target);
+        dots.forEach((d,j)=>d.classList.toggle('active',i===j));
+      }
+    });
+  },{threshold:0.5});
+  slides.forEach(s=>obs.observe(s));
+  return obs.observe.bind(obs);
+})();
+
+/* ─── KEYBOARD NAV ─── */
+document.addEventListener('keydown', e => {
+  if(e.key==='ArrowDown'||e.key===' '){
+    e.preventDefault();
+    const i=[...slides].findIndex(s=>s.getBoundingClientRect().top>-10);
+    if(i<slides.length-1) slides[i+1]?.scrollIntoView({behavior:'smooth'});
+  }
+  if(e.key==='ArrowUp'){
+    e.preventDefault();
+    const i=[...slides].findLastIndex(s=>s.getBoundingClientRect().top<-10);
+    if(i>=0) slides[i]?.scrollIntoView({behavior:'smooth'});
+  }
+});
+
+/* ═══════════════════════════════════════
+   S1 — PIXEL GRID
+═══════════════════════════════════════ */
+let pixelData = [];
+function renderPixelGrid(){
+  const g = document.getElementById('pixelGrid'); g.innerHTML='';
+  pixelData.forEach((v,i)=>{
+    const c=document.createElement('div'); c.className='pixel-cell';
+    c.style.background=`rgb(${v},${v},${v})`; c.style.color=v>140?'#000':'#eee';
+    c.textContent=v; c.title=`(${Math.floor(i/8)},${i%8}) = ${v}`;
+    g.appendChild(c);
+  });
+}
+function randomPixels(){ pixelData=Array.from({length:64},()=>Math.floor(Math.random()*256)); renderPixelGrid(); }
+function facePixels(){
+  pixelData=[180,180,200,210,210,200,180,180,180,220,220,220,220,220,220,180,
+             200,220,0,220,220,0,220,200,200,220,220,220,220,220,220,200,
+             200,220,30,220,220,30,220,200,200,220,80,100,100,80,220,200,
+             180,220,220,220,220,220,220,180,180,180,200,210,210,200,180,180];
+  renderPixelGrid();
+}
+facePixels();
+
+/* ═══════════════════════════════════════
+   S2 — ANN DIAGRAM
+═══════════════════════════════════════ */
+(function(){
+  const wrap = document.getElementById('nnDiagram');
+  const layers = [
+    {label:'INPUT',  nodes:4, color:'var(--accent4)'},
+    {label:'HIDDEN 1',nodes:5, color:'var(--accent3)'},
+    {label:'HIDDEN 2',nodes:4, color:'var(--accent3)'},
+    {label:'OUTPUT', nodes:3, color:'var(--teal)'},
+  ];
+  layers.forEach((l,li)=>{
+    if(li>0){
+      const conn=document.createElement('div');
+      conn.className='nn-connector'; wrap.appendChild(conn);
+    }
+    const layer=document.createElement('div'); layer.className='nn-layer';
+    const lbl=document.createElement('div'); lbl.className='layer-label'; lbl.textContent=l.label;
+    layer.appendChild(lbl);
+    for(let n=0;n<l.nodes;n++){
+      const node=document.createElement('div'); node.className='nn-node';
+      node.style.cssText=`border-color:${l.color};`;
+      layer.appendChild(node);
+    }
+    wrap.appendChild(layer);
+  });
+  // Animate lit nodes
+  let t=0;
+  setInterval(()=>{
+    document.querySelectorAll('.nn-node').forEach(n=>n.classList.remove('lit'));
+    const nodes=document.querySelectorAll('.nn-node');
+    const litCount=Math.floor(nodes.length*0.4);
+    for(let i=0;i<litCount;i++) nodes[Math.floor(Math.random()*nodes.length)].classList.add('lit');
+    t++;
+  },900);
+})();
+
+/* ═══════════════════════════════════════
+   S5 — CONVOLUTION
+═══════════════════════════════════════ */
+const inputImg=[120,200,80,60,180,90,150,50,210,170,40,130,70,190,30,220,100,160,200,80,140,50,240,70,30,160,90,180,20,200,100,40,220,10,150,80];
+const FILTERS={
+  edge:{k:[-1,-1,-1,-1,8,-1,-1,-1,-1],desc:'Highlights where pixels differ from neighbours — detects edges.'},
+  blur:{k:[1/9,1/9,1/9,1/9,1/9,1/9,1/9,1/9,1/9],desc:'Averages neighbouring pixels — smooths out noise.'},
+  sharp:{k:[0,-1,0,-1,5,-1,0,-1,0],desc:'Amplifies the centre pixel — makes edges crisper.'},
+};
+let activeFilter='edge', convStep=0, convTimer=null;
+
+function setFilter(f){
+  activeFilter=f;
+  ['Edge','Blur','Sharp'].forEach(n=>document.getElementById('fb'+n).classList.remove('active'));
+  document.getElementById('fb'+f[0].toUpperCase()+f.slice(1)).classList.add('active');
+  renderKernel(); resetConv();
+}
+function renderKernel(){
+  const k=FILTERS[activeFilter].k; const fmt=v=>v.toFixed(2).padStart(6);
+  document.getElementById('kernelDisplay').innerHTML=
+    `[${fmt(k[0])},${fmt(k[1])},${fmt(k[2])}]<br>[${fmt(k[3])},${fmt(k[4])},${fmt(k[5])}]<br>[${fmt(k[6])},${fmt(k[7])},${fmt(k[8])}]`;
+  document.getElementById('filterDesc').textContent=FILTERS[activeFilter].desc;
+}
+function computeConv(){
+  const k=FILTERS[activeFilter].k; const out=[];
+  for(let r=0;r<4;r++) for(let c=0;c<4;c++){
+    let s=0;
+    for(let kr=0;kr<3;kr++) for(let kc=0;kc<3;kc++) s+=inputImg[(r+kr)*6+(c+kc)]*k[kr*3+kc];
+    out.push(Math.min(255,Math.max(0,Math.round(s))));
+  }
+  return out;
+}
+function buildConvGrids(){
+  const inp=document.getElementById('convInput'); inp.innerHTML='';
+  inputImg.forEach(v=>{
+    const c=document.createElement('div'); c.className='conv-cell';
+    c.style.background=`rgb(${v},${v},${v})`; c.style.color=v>128?'#000':'#eee'; c.textContent=v; inp.appendChild(c);
+  });
+  const out=document.getElementById('convOutput'); out.innerHTML='';
+  computeConv().forEach(()=>{
+    const c=document.createElement('div'); c.className='conv-cell';
+    c.style.background='var(--bg2)'; c.style.color='var(--muted)'; c.textContent='?'; out.appendChild(c);
+  });
+}
+function startConvAnim(){
+  clearInterval(convTimer); const outData=computeConv(); convStep=0;
+  convTimer=setInterval(()=>{
+    if(convStep>=16){clearInterval(convTimer);document.getElementById('convStatus').textContent='✅ Done! Filter swept the entire image.';return;}
+    const r=Math.floor(convStep/4),c=convStep%4;
+    const inp=document.getElementById('convInput').children;
+    const out=document.getElementById('convOutput').children;
+    [...inp].forEach(el=>el.classList.remove('highlight-patch'));
+    [...out].forEach(el=>el.classList.remove('output-active'));
+    for(let kr=0;kr<3;kr++) for(let kc=0;kc<3;kc++) inp[(r+kr)*6+(c+kc)].classList.add('highlight-patch');
+    const v=outData[convStep];
+    out[convStep].classList.add('output-active');
+    out[convStep].style.background=`rgb(${v},${v},${v})`; out[convStep].style.color=v>128?'#000':'#eee'; out[convStep].textContent=v;
+    document.getElementById('convStatus').textContent=`Step ${convStep+1}/16 — Output[${r}][${c}] = ${v}`;
+    convStep++;
+  },500);
+}
+function resetConv(){ clearInterval(convTimer); convStep=0; buildConvGrids(); document.getElementById('convStatus').textContent='Click "Step through" to animate.'; }
+renderKernel(); buildConvGrids();
+
+/* ═══════════════════════════════════════
+   S6 — STRIDE & PADDING
+═══════════════════════════════════════ */
+let currentStride=1, paddingOn=false;
+
+function buildStrideGrid(stride){
+  const grid=document.getElementById('strideGrid'); grid.innerHTML='';
+  for(let r=0;r<7;r++) for(let c=0;c<7;c++){
+    const cell=document.createElement('div'); cell.className='anim-cell';
+    const v=Math.floor(Math.random()*180+40);
+    cell.style.background=`rgb(${v},${v},${v})`; cell.style.opacity='0.75';
+    grid.appendChild(cell);
+  }
+  highlightStrideStep(stride,0);
+}
+function highlightStrideStep(stride,step){
+  const cells=document.getElementById('strideGrid').children;
+  [...cells].forEach(c=>c.style.borderColor='var(--border)');
+  const pos=[];
+  for(let sr=0;sr+3<=7;sr+=stride) for(let sc=0;sc+3<=7;sc+=stride) pos.push([sr,sc]);
+  if(step<pos.length){
+    const[sr,sc]=pos[step];
+    for(let kr=0;kr<3;kr++) for(let kc=0;kc<3;kc++){
+      const idx=(sr+kr)*7+(sc+kc);
+      if(cells[idx]) cells[idx].style.borderColor='var(--accent)';
+    }
+  }
+  document.getElementById('strideEffect').textContent=`Output: ${Math.floor((7-3)/stride)+1}×${Math.floor((7-3)/stride)+1}`;
+}
+function setStride(s){
+  currentStride=s;
+  document.getElementById('st1').classList.toggle('active',s===1);
+  document.getElementById('st2').classList.toggle('active',s===2);
+  buildStrideGrid(s);
+  clearInterval(window._strideTimer);
+  let step=0; const pos=[];
+  for(let sr=0;sr+3<=7;sr+=s) for(let sc=0;sc+3<=7;sc+=s) pos.push([sr,sc]);
+  window._strideTimer=setInterval(()=>{ step=(step+1)%pos.length; highlightStrideStep(s,step); },800);
+}
+function buildPadGrid(padded){
+  const grid=document.getElementById('padGrid'); grid.innerHTML='';
+  const size=padded?9:7;
+  grid.style.gridTemplateColumns=`repeat(${size},30px)`;
+  for(let r=0;r<size;r++) for(let c=0;c<size;c++){
+    const cell=document.createElement('div'); cell.className='anim-cell';
+    cell.style.width='30px'; cell.style.height='30px';
+    const isPad=padded&&(r===0||r===size-1||c===0||c===size-1);
+    cell.style.background=isPad?'rgba(26,110,232,.08)':'rgba(120,120,120,.18)';
+    cell.style.borderColor=isPad?'rgba(26,110,232,.4)':'var(--border)';
+    cell.style.color=isPad?'var(--accent4)':'var(--muted)';
+    cell.style.fontSize='9px'; cell.style.fontFamily='var(--mono)';
+    cell.textContent=isPad?'0':'';
+    grid.appendChild(cell);
+  }
+}
+function togglePad(){
+  paddingOn=!paddingOn;
+  document.getElementById('padBtn').textContent=paddingOn?'Hide padding':'Show padding';
+  document.getElementById('padLabel').textContent=paddingOn?'Padding → output stays same size':'No padding → output shrinks';
+  buildPadGrid(paddingOn);
+}
+setStride(1); buildPadGrid(false);
+
+/* ═══════════════════════════════════════
+   S6 — POOLING
+═══════════════════════════════════════ */
+function animatePool(){
+  const canvas=document.getElementById('poolCanvas');
+  const ctx=canvas.getContext('2d'); ctx.clearRect(0,0,260,130);
+  const data=[[200,50,180,30],[100,210,90,220],[60,40,190,80],[150,110,70,240]];
+  const cs=28;
+  ctx.font='10px DM Mono,monospace'; ctx.textAlign='center';
+  for(let r=0;r<4;r++) for(let c=0;c<4;c++){
+    const v=data[r][c]; ctx.fillStyle=`rgb(${v},${v},${v})`; ctx.fillRect(c*cs,r*cs,cs,cs);
+    ctx.fillStyle=v>128?'#000':'#eee'; ctx.fillText(v,c*cs+cs/2,r*cs+cs/2+4);
+  }
+  ctx.fillStyle='#999'; ctx.font='18px sans-serif'; ctx.fillText('→',4*cs+10,66);
+  const pools=[[Math.max(200,50,100,210),Math.max(180,30,90,220)],[Math.max(60,40,150,110),Math.max(190,80,70,240)]];
+  let delay=0;
+  [[0,0],[0,1],[1,0],[1,1]].forEach(([pr,pc])=>{
+    setTimeout(()=>{
+      [[pr*2,pc*2],[pr*2,pc*2+1],[pr*2+1,pc*2],[pr*2+1,pc*2+1]].forEach(([ir,ic])=>{
+        ctx.strokeStyle='var(--accent,#e8490f)'; ctx.lineWidth=2; ctx.strokeRect(ic*cs+1,ir*cs+1,cs-2,cs-2);
+      });
+      const v=pools[pr][pc]; const ox=4*cs+28+pc*52,oy=pr*52+8;
+      ctx.fillStyle=`rgb(${v},${v},${v})`; ctx.fillRect(ox,oy,46,46);
+      ctx.fillStyle=v>128?'#000':'#eee'; ctx.font='12px DM Mono,monospace'; ctx.fillText(v,ox+23,oy+27);
+    },delay); delay+=500;
+  });
+}
+animatePool();
+
+/* ═══════════════════════════════════════
+   S8 — DRAW & CLASSIFY
+═══════════════════════════════════════ */
+const drawCanvas=document.getElementById('drawCanvas');
+const dctx=drawCanvas.getContext('2d');
+const previewCanvas=document.getElementById('previewCanvas');
+const pctx=previewCanvas.getContext('2d');
+let drawing=false;
+dctx.fillStyle='#111318'; dctx.fillRect(0,0,252,252);
+dctx.strokeStyle='#fff'; dctx.lineWidth=22; dctx.lineCap='round'; dctx.lineJoin='round';
+
+function getPos(e,el){
+  const r=el.getBoundingClientRect(),src=e.touches?e.touches[0]:e;
+  return [src.clientX-r.left, src.clientY-r.top];
+}
+drawCanvas.addEventListener('mousedown',e=>{drawing=true;dctx.beginPath();const[x,y]=getPos(e,drawCanvas);dctx.moveTo(x,y);});
+drawCanvas.addEventListener('mouseup',()=>{drawing=false;updatePreview();});
+drawCanvas.addEventListener('mouseleave',()=>{drawing=false;});
+drawCanvas.addEventListener('mousemove',e=>{if(!drawing)return;const[x,y]=getPos(e,drawCanvas);dctx.lineTo(x,y);dctx.stroke();dctx.beginPath();dctx.moveTo(x,y);});
+drawCanvas.addEventListener('touchstart',e=>{e.preventDefault();drawing=true;dctx.beginPath();const[x,y]=getPos(e,drawCanvas);dctx.moveTo(x,y);},{passive:false});
+drawCanvas.addEventListener('touchend',e=>{e.preventDefault();drawing=false;updatePreview();});
+drawCanvas.addEventListener('touchmove',e=>{e.preventDefault();if(!drawing)return;const[x,y]=getPos(e,drawCanvas);dctx.lineTo(x,y);dctx.stroke();dctx.beginPath();dctx.moveTo(x,y);},{passive:false});
+
+function updatePreview(){
+  pctx.clearRect(0,0,140,140);
+  const tmp=document.createElement('canvas'); tmp.width=28; tmp.height=28;
+  tmp.getContext('2d').drawImage(drawCanvas,0,0,28,28);
+  pctx.imageSmoothingEnabled=false; pctx.drawImage(tmp,0,0,140,140);
+}
+function clearCanvas(){
+  dctx.fillStyle='#111318'; dctx.fillRect(0,0,252,252);
+  pctx.clearRect(0,0,140,140);
+  document.getElementById('bestGuess').textContent='?';
+  document.querySelectorAll('.pred-bar-fill').forEach(b=>b.style.width='0%');
+  document.querySelectorAll('.pred-pct').forEach(b=>b.textContent='');
+}
+
+// Init pred bars
+const pbEl=document.getElementById('predBars');
+for(let i=0;i<10;i++) pbEl.innerHTML+=`<div class="pred-row"><div class="pred-label">${i}</div><div class="pred-bar-bg"><div class="pred-bar-fill" id="bar${i}"></div></div><div class="pred-pct" id="pct${i}"></div></div>`;
+
+/* ── CLASSIFIER — flood-fill topology + shape features ──
+   Primary discriminator: exact loop count via BFS flood-fill.
+   0 holes → {1,2,3,5,7}  |  1 hole → {0,4,6,9}  |  2 holes → {8}
+   Secondary features disambiguate within each group.
+*/
+
+/* Preprocess: crop bounding box → scale into 20×20 → centre in 28×28 */
+function processPixels(){
+  const tmp=document.createElement('canvas'); tmp.width=28; tmp.height=28;
+  tmp.getContext('2d').drawImage(drawCanvas,0,0,28,28);
+  const raw=tmp.getContext('2d').getImageData(0,0,28,28).data;
+  const px=new Float32Array(784);
+  for(let i=0;i<784;i++) px[i]=raw[i*4]/255;
+  let r0=27,r1=0,c0=27,c1=0,any=false;
+  for(let r=0;r<28;r++) for(let c=0;c<28;c++) if(px[r*28+c]>0.12){
+    if(r<r0)r0=r; if(r>r1)r1=r; if(c<c0)c0=c; if(c>c1)c1=c; any=true;
+  }
+  if(!any) return px;
+  const sh=r1-r0+1, sw=c1-c0+1;
+  const sc=Math.min(20/sh,20/sw);
+  const nh=Math.round(sh*sc), nw=Math.round(sw*sc);
+  const or=Math.floor((28-nh)/2), oc=Math.floor((28-nw)/2);
+  const out=new Float32Array(784);
+  for(let r=0;r<nh;r++) for(let c=0;c<nw;c++){
+    const sr=r0+r/sc, sc2=c0+c/sc;
+    const fsr=Math.floor(sr), fsc=Math.floor(sc2);
+    const fr=sr-fsr, fc=sc2-fsc;
+    const cl=(ra,ca)=>Math.min(27,Math.max(0,ra))*28+Math.min(27,Math.max(0,ca));
+    const v=px[cl(fsr,fsc)]*(1-fr)*(1-fc)+px[cl(fsr+1,fsc)]*fr*(1-fc)+
+             px[cl(fsr,fsc+1)]*(1-fr)*fc+px[cl(fsr+1,fsc+1)]*fr*fc;
+    out[(or+r)*28+(oc+c)]=Math.min(1,v);
+  }
+  return out;
+}
+
+/* Flood-fill from all border background pixels → count enclosed holes */
+function topoAnalyse(px){
+  const T=0.25, W=28, H=28;
+  const ink=new Uint8Array(784);
+  for(let i=0;i<784;i++) ink[i]=px[i]>T?1:0;
+
+  // BFS from border background
+  const reached=new Uint8Array(784);
+  const q=[];
+  for(let r=0;r<H;r++) for(let c=0;c<W;c++){
+    if((r===0||r===H-1||c===0||c===W-1)&&!ink[r*W+c]&&!reached[r*W+c]){
+      reached[r*W+c]=1; q.push(r*W+c);
+    }
+  }
+  let head=0;
+  while(head<q.length){
+    const idx=q[head++], r=Math.floor(idx/W), c=idx%W;
+    for(const [dr,dc] of [[-1,0],[1,0],[0,-1],[0,1]]){
+      const nr=r+dr, nc=c+dc;
+      if(nr>=0&&nr<H&&nc>=0&&nc<W){
+        const ni=nr*W+nc;
+        if(!ink[ni]&&!reached[ni]){reached[ni]=1; q.push(ni);}
+      }
+    }
+  }
+
+  // Count + locate each enclosed hole via BFS
+  let holes=0;
+  const hv=new Uint8Array(784);
+  let topHoleArea=0, botHoleArea=0;
+  for(let i=0;i<784;i++){
+    if(!ink[i]&&!reached[i]&&!hv[i]){
+      holes++;
+      const hq=[i]; hv[i]=1; let hh=0, ta=0, ba=0;
+      while(hh<hq.length){
+        const idx=hq[hh++];
+        const r=Math.floor(idx/W), c=idx%W;
+        if(r<14) ta++; else ba++;
+        for(const [dr,dc] of [[-1,0],[1,0],[0,-1],[0,1]]){
+          const nr=r+dr, nc=c+dc;
+          if(nr>=0&&nr<H&&nc>=0&&nc<W){
+            const ni=nr*W+nc;
+            if(!ink[ni]&&!reached[ni]&&!hv[ni]){hv[ni]=1; hq.push(ni);}
+          }
+        }
+      }
+      topHoleArea+=ta; botHoleArea+=ba;
+    }
+  }
+
+  const holeTopDom = topHoleArea > botHoleArea*1.4;
+  const holeBotDom = botHoleArea > topHoleArea*1.4;
+  const holeBalanced = holes>=1 && !holeTopDom && !holeBotDom;
+  return {holes, topHoleArea, botHoleArea, holeTopDom, holeBotDom, holeBalanced};
+}
+
+/* Row/column ink crossings */
+function crossings(px, T=0.2){
+  const rowX=new Array(28).fill(0), colX=new Array(28).fill(0);
+  for(let r=0;r<28;r++){let p=0;for(let c=0;c<28;c++){const v=px[r*28+c]>T?1:0;if(v>p)rowX[r]++;p=v;}}
+  for(let c=0;c<28;c++){let p=0;for(let r=0;r<28;r++){const v=px[r*28+c]>T?1:0;if(v>p)colX[c]++;p=v;}}
+  return {rowX, colX};
+}
+
+/* Zone mean density */
+function zd(px,r0,r1,c0,c1){
+  let s=0,n=0;
+  for(let r=r0;r<r1;r++) for(let c=c0;c<c1;c++){s+=px[r*28+c];n++;}
+  return n?s/n:0;
+}
+
+function classifyDigit(){
+  const px=processPixels(); updatePreview();
+  const total=px.reduce((a,b)=>a+b,0);
+  if(total<5){alert('Draw something first!');return;}
+
+  const density=total/784;
+
+  /* ── Topology (primary discriminator) ── */
+  const {holes, holeTopDom, holeBotDom, holeBalanced}=topoAnalyse(px);
+
+  /* ── Zone densities ── */
+  const topL=zd(px,0,14,0,14),  topR=zd(px,0,14,14,28);
+  const botL=zd(px,14,28,0,14), botR=zd(px,14,28,14,28);
+  const topHalf=(topL+topR)/2,  botHalf=(botL+botR)/2;
+  const leftHalf=(topL+botL)/2, rightHalf=(topR+botR)/2;
+  const topCap=zd(px,0,7,6,22);   // open-top area
+  const botTail=zd(px,21,28,6,22); // tail below digit
+  const ltHook=zd(px,0,10,0,12);   // left-top hook (5)
+  const topStrip=zd(px,0,5,4,24);  // flat bar (7)
+
+  /* ── Symmetry ── */
+  let vsym=0, hsym=0;
+  for(let r=0;r<28;r++) for(let c=0;c<14;c++) vsym+=Math.abs(px[r*28+c]-px[r*28+(27-c)]);
+  for(let r=0;r<14;r++) for(let c=0;c<28;c++) hsym+=Math.abs(px[r*28+c]-px[(27-r)*28+c]);
+  vsym/=14*28; hsym/=14*28;
+
+  /* ── Centre of mass ── */
+  let cmr=0, cmc=0;
+  for(let r=0;r<28;r++) for(let c=0;c<28;c++){cmr+=r*px[r*28+c]; cmc+=c*px[r*28+c];}
+  cmr/=total; cmc/=total;
+  const cmrN=cmr/27, cmcN=cmc/27;
+
+  /* ── Crossings ── */
+  const {rowX, colX}=crossings(px);
+  const avgRowX=rowX.reduce((a,b)=>a+b)/28;
+  const avgColX=colX.reduce((a,b)=>a+b)/28;
+  const topRowX=rowX.slice(0,14).reduce((a,b)=>a+b)/14;
+  const botRowX=rowX.slice(14).reduce((a,b)=>a+b)/14;
+  const midRowX=rowX.slice(10,18).reduce((a,b)=>a+b)/8;
+  const maxRowX=Math.max(...rowX);
+
+  /* ── Width ratio (ink columns / 28) ── */
+  let inkCols=0;
+  for(let c=0;c<28;c++) if(colX[c]>0) inkCols++;
+  const widthRatio=inkCols/28;
+
+  const s=new Array(10).fill(0);
+
+  /* 0 — 1 hole balanced, oval, symmetric */
+  s[0]+= (holes===1?8:holes===0?-5:holes===2?-3:0)
+        +(holeBalanced?5:(holes===1?-3:0))
+        +(vsym<0.05?4:vsym<0.09?2:0)
+        +(hsym<0.06?3:0)
+        +(Math.abs(cmrN-0.5)<0.1?2:0)
+        +(Math.abs(cmcN-0.5)<0.12?2:0)
+        +(widthRatio>0.45?1:0)
+        +(avgRowX>=1.5&&avgRowX<2.5?2:0);
+
+  /* 1 — 0 holes, very narrow, single stroke */
+  s[1]+= (holes===0?4:-5)
+        +(density<0.13?6:density<0.18?2:-2)
+        +(avgRowX<1.5?6:avgRowX<1.8?2:-2)
+        +(widthRatio<0.28?5:widthRatio<0.38?1:-3)
+        +(maxRowX<2?3:0)
+        +(avgColX<1.5?2:0);
+
+  /* 2 — 0 holes, diagonal, bot-left + top-right density */
+  s[2]+= (holes===0?3:-3)
+        +(botL>0.15?3:0)
+        +(topR>0.12?2:0)
+        +(topRowX>1.4?2:0)
+        +(vsym>0.07?2:0)
+        +(density>0.14&&density<0.3?1:0)
+        +(Math.abs(topHalf-botHalf)<0.1?1:0);
+
+  /* 3 — 0 holes, right-heavy, two bumps */
+  s[3]+= (holes===0?3:-3)
+        +(rightHalf>leftHalf+0.05?6:rightHalf>leftHalf?2:-3)
+        +(vsym>0.08?3:vsym>0.05?1:0)
+        +(Math.abs(cmcN-0.6)<0.15?2:0)
+        +(midRowX>1.5?2:0);
+
+  /* 4 — 1 hole top-dominant, cross-bar, right column */
+  s[4]+= (holes===1?5:(holes===0?-3:0))
+        +(holeTopDom?5:(holes===1?-3:0))
+        +(topR>0.2?3:0)
+        +(midRowX>1.8?3:0)
+        +(avgColX>1.7?2:0)
+        +(topRowX>1.5?1:0)
+        +(cmcN>0.45?1:0);
+
+  /* 5 — 0 holes, left-hook top, right curve bottom */
+  s[5]+= (holes===0?3:(holes===1&&holeBotDom?1:-2))
+        +(ltHook>0.13?3:0)
+        +(leftHalf>rightHalf?2:0)
+        +(topL>topR*1.05?2:0)
+        +(botR>0.1?1:0)
+        +(topRowX>1.2?1:0);
+
+  /* 6 — 1 hole bottom-dominant, open top, heavy bottom */
+  s[6]+= (holes===1?5:(holes===0?-4:0))
+        +(holeBotDom?6:(holes===1?-4:0))
+        +(botHalf>topHalf*1.1?3:0)
+        +(topCap<0.12?2:0)
+        +(leftHalf>rightHalf*0.85?1:0);
+
+  /* 7 — 0 holes, flat top, thin diagonal, top-heavy */
+  s[7]+= (holes===0?3:-3)
+        +(topHalf>botHalf*1.4?5:topHalf>botHalf*1.15?2:0)
+        +(topStrip>0.2?3:0)
+        +(density<0.20?2:0)
+        +(botTail<0.1?1:0)
+        +(widthRatio>0.45?1:0);
+
+  /* 8 — 2 holes, symmetric, dense */
+  s[8]+= (holes===2?12:holes===1?-3:holes===0?-6:0)
+        +(vsym<0.055?4:vsym<0.08?2:0)
+        +(hsym<0.065?3:0)
+        +(density>0.22?2:0)
+        +(Math.abs(topHalf-botHalf)<0.07?2:0);
+
+  /* 9 — 1 hole top-dominant, tail below, top-heavy */
+  s[9]+= (holes===1?5:(holes===0?-3:0))
+        +(holeTopDom?6:(holes===1?-4:0))
+        +(topHalf>botHalf?3:0)
+        +(botTail>0.12?4:botTail>0.07?2:0)
+        +(cmrN<0.5?2:0)
+        +(vsym<0.09?1:0)
+        +(density>0.16?1:0);
+
+  // Softmax
+  const T=2.5;
+  const exp=s.map(v=>Math.exp(v/T));
+  const sum=exp.reduce((a,b)=>a+b);
+  const probs=exp.map(v=>v/sum);
+  const best=probs.indexOf(Math.max(...probs));
+
+  document.getElementById('bestGuess').textContent=best;
+  probs.forEach((p,i)=>{
+    const bar=document.getElementById('bar'+i);
+    bar.style.width=(p*100)+'%';
+    bar.style.background=i===best?'var(--accent)':'rgba(232,73,15,.25)';
+    document.getElementById('pct'+i).textContent=(p*100).toFixed(1)+'%';
+  });
+}
+
+/* ═══════════════════════════════════════
+   S9 — RGB CHANNELS
+═══════════════════════════════════════ */
+let rgbImg=[];
+function newRGBImage(){
+  const N=14; rgbImg=Array.from({length:N*N},()=>({r:Math.floor(Math.random()*256),g:Math.floor(Math.random()*256),b:Math.floor(Math.random()*256)}));
+  ['R','G','B'].forEach(ch=>{
+    const cv=document.getElementById('rgb'+ch); const ctx=cv.getContext('2d'); ctx.clearRect(0,0,100,100);
+    const cell=100/N;
+    rgbImg.forEach((px,i)=>{
+      const x=(i%N)*cell,y=Math.floor(i/N)*cell;
+      const v=ch==='R'?px.r:ch==='G'?px.g:px.b;
+      ctx.fillStyle=ch==='R'?`rgb(${v},0,0)`:ch==='G'?`rgb(0,${v},0)`:`rgb(0,0,${v})`;
+      ctx.fillRect(x,y,cell,cell);
+    });
+  });
+  const full=document.getElementById('rgbFull'); const ctx=full.getContext('2d'); ctx.clearRect(0,0,120,120);
+  const cell=120/N;
+  rgbImg.forEach((px,i)=>{
+    const x=(i%N)*cell,y=Math.floor(i/N)*cell;
+    ctx.fillStyle=`rgb(${px.r},${px.g},${px.b})`; ctx.fillRect(x,y,cell,cell);
+  });
+}
+newRGBImage();
+</script>
+</body>
+</html>
